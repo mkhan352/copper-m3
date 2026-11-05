@@ -873,7 +873,7 @@ describe("Module 3: citations in Copper's replies", () => {
       .fn()
       .mockResolvedValueOnce(
         answered(
-          "Unplug it for 30 seconds [Copper Home User Guide, p. 9](/docs/copper-home-user-guide.pdf#page=9). Or [Terms, p. 4](https://example.com/docs/copper-terms-and-conditions.pdf#page=4). Or see [this site](https://evil.example/phish).",
+          "Unplug it for 30 seconds [Copper Home User Guide, p. 9](/docs/copper-home-user-guide.pdf#page=9). Or [Terms, p. 4](https://example.com/docs/copper-terms-and-conditions.pdf#page=4). Also [FAQ, p. 5]( /docs/copper-plus-faq.pdf#page=5 ). Or see [this site](https://evil.example/phish).",
         ),
       );
     vi.doMock("@/lib/copper/assistant/ask", () => ({ askCopper }));
@@ -898,6 +898,11 @@ describe("Module 3: citations in Copper's replies", () => {
     expect(chat.getByRole("link", { name: "Terms, p. 4" })).toHaveAttribute(
       "href",
       "/docs/copper-terms-and-conditions.pdf#page=4",
+    );
+    // A stray space inside the brackets doesn't stop the link from working.
+    expect(chat.getByRole("link", { name: "FAQ, p. 5" })).toHaveAttribute(
+      "href",
+      "/docs/copper-plus-faq.pdf#page=5",
     );
     // A link to any other address is shown as its words only.
     expect(chat.queryByRole("link", { name: /this site/ })).toBeNull();

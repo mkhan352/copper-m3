@@ -434,9 +434,10 @@ const DOC_LINK = /^(?:https?:\/\/[^/\s]+)?(\/docs\/[\w-]+\.pdf#page=\d+)$/;
  */
 function InlineMarkdown({ text }: { text: string }) {
   return text
-    .split(/(\[[^\]]+\]\([^)\s]+\)|\*\*[^*]+\*\*|`[^`]+`)/)
+    .split(/(\[[^\]]+\]\(\s*[^)\s]+\s*\)|\*\*[^*]+\*\*|`[^`]+`)/)
     .map((part, i) => {
-      const link = part.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/);
+      // Small models sometimes leave a space after the "(", so allow one.
+      const link = part.match(/^\[([^\]]+)\]\(\s*([^)\s]+)\s*\)$/);
       if (link)
         return DOC_LINK.test(link[2]) ? (
           <a
