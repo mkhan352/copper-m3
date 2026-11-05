@@ -1,0 +1,84 @@
+{
+  "products": [
+    {
+      "id": "copper-home",
+      "name": "Copper Home",
+      "type": "AI smart speaker",
+      "priceUsd": 149,
+      "features": [
+        {
+          "name": "Household Memory",
+          "description": "Remembers what matters, like when the pool guy comes. View and delete memories in the Copper app."
+        },
+        {
+          "name": "Smart-home control",
+          "description": "Runs your lights, thermostat, sprinklers and garage."
+        },
+        {
+          "name": "Monsoon Mode",
+          "description": "Storm alerts, and pauses the sprinklers when rain is coming."
+        }
+      ],
+      "colors": ["Polished Copper", "Patina Teal", "Night Sky"],
+      "cutout": "/assets/cutouts/copper-home.png",
+      "lifestyle": ["/assets/lifestyle/copper-home-desert-light.png"]
+    },
+    {
+      "id": "copper-notes",
+      "name": "Copper Notes",
+      "type": "AI clip-on recorder",
+      "priceUsd": 129,
+      "features": [
+        {
+          "name": "Meeting Mode",
+          "description": "Summaries, decisions and action items from every meeting."
+        },
+        {
+          "name": "Lecture Mode",
+          "description": "Organized notes with key terms, popular with students."
+        },
+        {
+          "name": "Consent Chime",
+          "description": "Plays a short chime and lights the amber ring when recording starts."
+        }
+      ],
+      "colors": ["Brushed Copper", "Desert Sand", "Night Sky"],
+      "cutout": "/assets/cutouts/copper-notes.png",
+      "lifestyle": [
+        "/assets/lifestyle/copper-notes-stone-desk.png",
+        "/assets/lifestyle/copper-notes-golden-hour.png"
+      ]
+    }
+  ],
+  "plans": [
+    {
+      "id": "free",
+      "name": "Free",
+      "monthlyUsd": 0,
+      "annualUsd": 0,
+      "memoryDays": 30,
+      "notesHoursPerMonth": "10",
+      "refinedAnswers": false
+    },
+    {
+      "id": "copper-plus",
+      "name": "Copper Plus",
+      "monthlyUsd": 7.99,
+      "annualUsd": 79,
+      "memoryDays": 365,
+      "notesHoursPerMonth": "Unlimited",
+      "refinedAnswers": true
+    }
+  ],
+  "privacy": {
+    "policy": "2026",
+    "wakeWord": "Hey Copper",
+    "points": [
+      "Copper Home listens locally for \"Hey Copper.\" Nothing is sent to the cloud until the wake word is detected.",
+      "After the wake word, the request is sent to the Copper Cloud and saved: 30 days on Free, 12 months on Copper Plus.",
+      "Copper Notes recordings are transcribed on the device. Transcripts and summaries are stored for 30 days on Free and 12 months on Copper Plus.",
+      "You can view and delete recordings, transcripts and Household Memory anytime in the Copper app.",
+      "Copper State Labs does not sell recordings, and doesn't use them to train models unless you opt in."
+    ]
+  }
+}

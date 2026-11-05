@@ -1,0 +1,8 @@
+# Never copied into the grading image.
+.env*
+.git
+.next
+node_modules
+.grading
+.vitest-cache
+coverage
