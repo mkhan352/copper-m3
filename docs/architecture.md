@@ -117,3 +117,18 @@ customer's question can later be matched to the right passages.
 **Decisions and trade-offs:** Passages are about 300 characters on average, small enough to be specific and large enough to make sense alone. 768 numbers per passage, not the model's 3072, keeps the file under 1 MB with little loss in quality. Vectors are scaled to length 1 so comparing two is a simple multiply-and-add. Passages are stored with `RETRIEVAL_DOCUMENT` and questions will use `RETRIEVAL_QUERY`, which Gemini is built to match.
 
 **Risks and open questions:** The file goes stale if a PDF changes and `npm run embed` isn't re-run. Sentence splitting is rule-based, so an unusual abbreviation could split a sentence early. Tables and text inside images aren't read.
+
+### Module 3: the `search_docs` tool
+
+**Summary:** Ask Copper's fifth tool. It embeds the customer's question, finds the 5 closest passages in memory and returns each with its document title, page number and a link that opens the PDF at that page. Copper's instructions send setup, troubleshooting, warranty, refund and privacy questions to it and tell Copper to answer only from what comes back and name the document and page.
+
+| Piece | Where | What it does |
+|---|---|---|
+| Tool | `lib/copper/assistant/tools.ts` `search_docs` / `searchDocs()` | Embeds the question (`callEmbed`, `{ module: 3, feature: "search-docs" }`, as a question) and returns `{ status: "ok", passages }`, or `{ status: "unavailable" }` if embedding fails |
+| Search | `lib/copper/rag/search.ts` `closestPassages()` | Compares the question with every passage (multiply-and-add, since all are scaled to length 1), keeps the top 5, and builds each `/docs/<file>.pdf#page=N` link |
+| Instructions | `lib/copper/assistant/instructions.ts` | When to use `search_docs`, answer only from the passages, cite title and page, and say so if they don't answer |
+| Tool card | `components/copper/ask-copper.tsx` (`ToolOutput`) | Lists the 5 passages: rank, title, similarity, an "Open page N" link and a short excerpt |
+
+**Decisions and trade-offs:** Always 5 results, because a fixed number is simple for students to reason about, even though sometimes fewer are relevant. The similarity score is shown so students can see when matches are weak (a short query like "C-47" scores about 0.58 for its right answer). Search is exact and in memory, which is fast at 99 passages but would need a vector database at much larger sizes.
+
+**Risks and open questions:** Copper can still misread a passage, so it cites document and page for the customer to check. The `#page=N` link works in most browsers' built-in PDF viewers but not every one.

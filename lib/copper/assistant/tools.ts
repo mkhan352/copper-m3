@@ -11,6 +11,14 @@ import {
   type ProductId,
 } from "@/lib/copper/catalog";
 import { readInventory } from "@/lib/copper/inventory";
+import { callEmbed } from "@/lib/ai/call";
+import { closestPassages, type DocHit } from "@/lib/copper/rag/search";
+
+export type SearchDocsInput = { question: string };
+
+export type DocSearchResult =
+  | { status: "ok"; passages: DocHit[] }
+  | { status: "unavailable"; message: string };
 
 export type ProductList = {
   products: {
@@ -177,7 +185,45 @@ export async function checkAvailability(
   };
 }
 
+export const searchDocsInput = z.object({
+  question: z
+    .string()
+    .min(2)
+    .describe(
+      "The customer's question in plain words, with any error code or product name they mentioned, e.g. 'What does error C-47 mean on Copper Home?'",
+    ),
+}) satisfies z.ZodType<SearchDocsInput>;
+
+/**
+ * search_docs: turns the question into an embedding and returns the 5
+ * passages from the customer documents closest in meaning, each with its
+ * document title, page number and a link that opens the PDF at that page.
+ */
+export async function searchDocs(
+  input: SearchDocsInput,
+): Promise<DocSearchResult> {
+  try {
+    const { embedding } = await callEmbed(
+      { module: 3, feature: "search-docs" },
+      { value: input.question, kind: "query" },
+    );
+    return { status: "ok", passages: closestPassages(embedding) };
+  } catch {
+    return {
+      status: "unavailable",
+      message:
+        "The documents can't be searched right now. Please try again soon.",
+    };
+  }
+}
+
 export const copperTools = {
+  search_docs: tool({
+    description:
+      "Searches Copper's customer documents (the Copper Home and Copper Notes user guides, the Terms and Conditions and the Copper Plus FAQ) and returns the 5 passages closest to the question, each with its document title, page number and a link to that page. Use it for setup, troubleshooting, error codes, warranty, refunds, privacy and other policy questions.",
+    inputSchema: searchDocsInput,
+    execute: async (input) => searchDocs(input),
+  }),
   get_products: tool({
     description:
       "Lists every Copper product with its type, price and the colors it comes in.",

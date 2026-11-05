@@ -584,6 +584,39 @@ function ToolOutput({ name, output }: { name: string; output: any }) {
           ))}
       </div>
     );
+  if (name === "search_docs" && output?.status) {
+    if (output.status === "unavailable")
+      return <p className="text-xs">{output.message}</p>;
+    return (
+      <ol className="space-y-2 text-xs">
+        {output.passages.map((p: any) => (
+          <li
+            key={`${p.title}-${p.page}-${p.rank}`}
+            data-testid="doc-passage"
+            className="bg-card rounded-lg border p-2"
+          >
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-semibold">
+                {p.rank}. {p.title}
+              </span>
+              <span className="text-muted-foreground font-mono">
+                {p.similarity.toFixed(2)}
+              </span>
+            </div>
+            <a
+              href={p.url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary font-medium underline"
+            >
+              Open page {p.page}
+            </a>
+            <p className="text-muted-foreground mt-1 line-clamp-3">{p.text}</p>
+          </li>
+        ))}
+      </ol>
+    );
+  }
   if (name === "check_availability" && output?.status) {
     if (output.status === "unavailable")
       return <p className="text-xs">{output.message}</p>;

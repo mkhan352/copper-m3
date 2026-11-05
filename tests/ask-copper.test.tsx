@@ -805,3 +805,63 @@ describe("Part C: askCopper", () => {
     expect(text).toContain("What does Copper Plus cost?");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Module 3: the search_docs card
+// ---------------------------------------------------------------------------
+
+describe("Module 3: the search_docs tool card", () => {
+  it("shows each of the 5 passages with its document title, page number and a link that opens the PDF at that page", async () => {
+    vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "AIza-test-key");
+    const { PASSAGES } = await import("@/lib/copper/rag/passages");
+    const { closestPassages } = await import("@/lib/copper/rag/search");
+    const passages = closestPassages(
+      PASSAGES.find((p) => p.id === "copper-home-user-guide-p9-2")!.embedding,
+    );
+    const askCopper = vi
+      .fn()
+      .mockResolvedValueOnce(
+        answered(
+          "C-47 is a microphone fault (Copper Home User Guide, page 9).",
+          [
+            toolStep(
+              "search_docs",
+              { question: "What does C-47 mean?" },
+              { status: "ok", passages },
+            ),
+          ],
+        ),
+      );
+    vi.doMock("@/lib/copper/assistant/ask", () => ({ askCopper }));
+    await renderPage();
+    const section = await openChat();
+    const chat = within(section);
+
+    await ask(chat, "What does C-47 mean?");
+    await waitFor(() =>
+      expect(chat.getByText(/microphone fault/)).toBeInTheDocument(),
+    );
+
+    const card = section.querySelector<HTMLElement>(
+      '[data-tool="search_docs"]',
+    )!;
+    expect(card).not.toBeNull();
+    expect(card.textContent).toMatch(/What does C-47 mean/);
+    const rows = card.querySelectorAll('[data-testid="doc-passage"]');
+    expect(rows).toHaveLength(5);
+    const first = within(rows[0] as HTMLElement);
+    expect(first.getByText(/Copper Home User Guide/)).toBeVisible();
+    const link = first.getByRole("link", { name: /open page 9/i });
+    expect(link).toHaveAttribute(
+      "href",
+      "/docs/copper-home-user-guide.pdf#page=9",
+    );
+    expect(link).toHaveAttribute("target", "_blank");
+    for (const row of rows) {
+      expect(within(row as HTMLElement).getByRole("link")).toHaveAttribute(
+        "href",
+        expect.stringMatching(/^\/docs\/.+\.pdf#page=\d+$/),
+      );
+    }
+  });
+});
