@@ -193,6 +193,21 @@ describe("Copper uses search_docs", () => {
     expect(COPPER_INSTRUCTIONS).toMatch(/page/i);
   });
 
+  it("tells Copper to answer only from the passages, cite every sentence with a link, and never guess", async () => {
+    const { COPPER_INSTRUCTIONS: text } =
+      await import("@/lib/copper/assistant/instructions");
+    expect(text).toMatch(/only from what search_docs returned/i);
+    expect(text).toMatch(/every sentence/i);
+    expect(text).toContain("[Copper Home User Guide, p. 9](");
+    expect(text).toMatch(/exactly the url search_docs gave/i);
+    expect(text).toContain(
+      "I couldn't find that in our support docs. Please contact the Copper Crew.",
+    );
+    expect(text).toMatch(/no website name/i);
+    expect(text).toMatch(/Copper Crew/);
+    expect(text).toMatch(/never guess/i);
+  });
+
   it("searches, then answers from what the search returned", async () => {
     embedder = embedsAs(C47);
     chat = callsThenAnswers(

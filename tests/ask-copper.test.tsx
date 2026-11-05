@@ -741,7 +741,7 @@ describe("Part C: askCopper", () => {
     expect(logged[0]).toMatchObject({
       module: 2,
       feature: "ask-copper",
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-3.1-flash-lite",
       ok: true,
     });
   });
@@ -863,5 +863,45 @@ describe("Module 3: the search_docs tool card", () => {
         expect.stringMatching(/^\/docs\/.+\.pdf#page=\d+$/),
       );
     }
+  });
+});
+
+describe("Module 3: citations in Copper's replies", () => {
+  it("turns [Title, p. N](link) into a link that opens that PDF page, and never links anywhere else", async () => {
+    vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "AIza-test-key");
+    const askCopper = vi
+      .fn()
+      .mockResolvedValueOnce(
+        answered(
+          "Unplug it for 30 seconds [Copper Home User Guide, p. 9](/docs/copper-home-user-guide.pdf#page=9). Or [Terms, p. 4](https://example.com/docs/copper-terms-and-conditions.pdf#page=4). Or see [this site](https://evil.example/phish).",
+        ),
+      );
+    vi.doMock("@/lib/copper/assistant/ask", () => ({ askCopper }));
+    await renderPage();
+    const section = await openChat();
+    const chat = within(section);
+
+    await ask(chat, "What does C-47 mean?");
+    await waitFor(() =>
+      expect(chat.getByText(/Unplug it for 30 seconds/)).toBeInTheDocument(),
+    );
+
+    const citation = chat.getByRole("link", {
+      name: "Copper Home User Guide, p. 9",
+    });
+    expect(citation).toHaveAttribute(
+      "href",
+      "/docs/copper-home-user-guide.pdf#page=9",
+    );
+    expect(citation).toHaveAttribute("target", "_blank");
+    // A website name the model put in front is dropped; the link stays ours.
+    expect(chat.getByRole("link", { name: "Terms, p. 4" })).toHaveAttribute(
+      "href",
+      "/docs/copper-terms-and-conditions.pdf#page=4",
+    );
+    // A link to any other address is shown as its words only.
+    expect(chat.queryByRole("link", { name: /this site/ })).toBeNull();
+    expect(chat.getByText(/this site/)).toBeInTheDocument();
+    expect(section.textContent).not.toContain("](");
   });
 });

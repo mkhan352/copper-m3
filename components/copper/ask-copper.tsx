@@ -383,7 +383,7 @@ function Answer({
             </div>
           )}
           <p className="text-sm whitespace-pre-wrap">
-            {reply}
+            <InlineMarkdown text={reply} />
             {working && (
               <span className="bg-primary ml-0.5 inline-block h-4 w-0.5 animate-pulse align-middle" />
             )}
@@ -423,23 +423,49 @@ function Station({
   );
 }
 
-/** Thought summaries arrive as markdown: render **bold** and `code`. */
+// The only links Copper's replies may contain: a page of one of our PDFs. The
+// link is rebuilt from just that path, so a website name the model puts in
+// front of it is dropped, and any other address is shown as plain text.
+const DOC_LINK = /^(?:https?:\/\/[^/\s]+)?(\/docs\/[\w-]+\.pdf#page=\d+)$/;
+
+/**
+ * Thought summaries and replies arrive as markdown: render **bold**, `code`
+ * and [citation](/docs/file.pdf#page=9) links.
+ */
 function InlineMarkdown({ text }: { text: string }) {
-  return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/).map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**"))
-      return (
-        <strong key={i} className="text-foreground not-italic">
-          {part.slice(2, -2)}
-        </strong>
-      );
-    if (part.startsWith("`") && part.endsWith("`"))
-      return (
-        <code key={i} className="font-mono not-italic">
-          {part.slice(1, -1)}
-        </code>
-      );
-    return part;
-  });
+  return text
+    .split(/(\[[^\]]+\]\([^)\s]+\)|\*\*[^*]+\*\*|`[^`]+`)/)
+    .map((part, i) => {
+      const link = part.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/);
+      if (link)
+        return DOC_LINK.test(link[2]) ? (
+          <a
+            key={i}
+            href={link[2].match(DOC_LINK)![1]}
+            target="_blank"
+            rel="noreferrer"
+            data-testid="citation"
+            className="text-primary font-medium underline"
+          >
+            {link[1]}
+          </a>
+        ) : (
+          link[1]
+        );
+      if (part.startsWith("**") && part.endsWith("**"))
+        return (
+          <strong key={i} className="text-foreground not-italic">
+            {part.slice(2, -2)}
+          </strong>
+        );
+      if (part.startsWith("`") && part.endsWith("`"))
+        return (
+          <code key={i} className="font-mono not-italic">
+            {part.slice(1, -1)}
+          </code>
+        );
+      return part;
+    });
 }
 
 function ToolCard({ step, number }: { step: ToolStep; number: number }) {
