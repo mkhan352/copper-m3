@@ -96,3 +96,24 @@ each step. Module 3 teaches it to answer from the customer documents.
 | Instructions | `lib/copper/assistant/instructions.ts` | `COPPER_INSTRUCTIONS`. Copper says it can't help yet with warranty, setup, troubleshooting or privacy |
 | Data | `lib/copper/inventory.ts`, `lib/copper/documents.ts` | Stock from `lib/copper/data/inventory.json`; `DOCUMENTS`: the four customer documents and their PDF paths under `public/docs/`. The PDFs are added in class |
 | AI calls | `{ module: 2, feature: "ask-copper" }` | One streamed call per question |
+
+## Module 3: Document passages and embeddings
+
+**Summary:** The four customer PDFs are split into small passages, and each
+passage is turned into an embedding (a list of numbers that captures its
+meaning). They are saved in one JSON file the app keeps in memory, so a
+customer's question can later be matched to the right passages.
+
+| Piece | Where | What it does |
+|---|---|---|
+| Script | `scripts/build-embeddings.ts` (`npm run embed`) | Reads every PDF in `public/docs/`, makes the passages, embeds them, writes the JSON file. Run it again whenever a PDF changes |
+| Chunker | `lib/copper/rag/chunk.ts` | Drops the header and footer lines that repeat on each page, splits pages into sentences, and groups up to 3 sentences (about 700 characters) into a passage. Each passage keeps its document title and page number, and its text starts with the title |
+| Data | `lib/copper/data/passages.json` | 99 passages with their embeddings (768 numbers each, scaled to length 1) |
+| Loader | `lib/copper/rag/passages.ts` | `PASSAGES`: imports the JSON once when the server starts, so it stays in memory |
+| AI calls | `lib/ai/call.ts` `callEmbedMany` / `callEmbed` (`{ module: 3, feature: "embed-documents" }`) | `gemini-embedding-001`, one call for all passages, about $0.15 per million tokens, so a few cents at most. `callEmbed` is for embedding a customer's question later |
+
+**Data flow:** PDFs in `public/docs/` → `npm run embed` → `passages.json` → loaded into memory at startup → (next) a question is embedded and compared with every passage.
+
+**Decisions and trade-offs:** Passages are about 300 characters on average, small enough to be specific and large enough to make sense alone. 768 numbers per passage, not the model's 3072, keeps the file under 1 MB with little loss in quality. Vectors are scaled to length 1 so comparing two is a simple multiply-and-add. Passages are stored with `RETRIEVAL_DOCUMENT` and questions will use `RETRIEVAL_QUERY`, which Gemini is built to match.
+
+**Risks and open questions:** The file goes stale if a PDF changes and `npm run embed` isn't re-run. Sentence splitting is rule-based, so an unusual abbreviation could split a sentence early. Tables and text inside images aren't read.

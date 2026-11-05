@@ -17,6 +17,14 @@ export const MODELS = [
 export type ModelId = (typeof MODELS)[number]["id"];
 
 /**
+ * The model that turns text into embeddings (lists of numbers that capture
+ * meaning), used to search the customer documents. 768 numbers per passage is
+ * plenty for a few hundred passages and keeps the saved file small.
+ */
+export const EMBEDDING_MODEL = "gemini-embedding-001";
+export const EMBEDDING_DIMENSIONS = 768;
+
+/**
  * The model used when a call doesn't name one. 2.5 Flash writes a summary of
  * its thinking for every question, which Ask Copper shows students.
  */

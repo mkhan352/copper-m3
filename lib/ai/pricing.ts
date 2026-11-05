@@ -7,6 +7,9 @@ export const PRICING: Record<ModelId, { input: number; output: number }> = {
   "google/gemini-3-flash": { input: 0.5, output: 3 },
 };
 
+// Embedding models only charge for the text going in.
+export const EMBEDDING_USD_PER_MILLION_TOKENS = 0.15;
+
 export function costUsd(
   model: ModelId,
   inputTokens: number,

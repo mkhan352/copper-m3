@@ -1,8 +1,14 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { generateText, Output, streamText } from "ai";
+import { embed, embedMany, generateText, Output, streamText } from "ai";
 import type { z } from "zod";
-import { defaultModel, MODELS, type ModelId } from "@/lib/ai/models";
-import { costUsd } from "@/lib/ai/pricing";
+import {
+  defaultModel,
+  EMBEDDING_DIMENSIONS,
+  EMBEDDING_MODEL,
+  MODELS,
+  type ModelId,
+} from "@/lib/ai/models";
+import { costUsd, EMBEDDING_USD_PER_MILLION_TOKENS } from "@/lib/ai/pricing";
 
 // Every model call in the app goes through this file, so each one is logged
 // with its tokens, cost and how long it took. The log goes to the terminal
@@ -36,7 +42,7 @@ type TextOptions = DistributiveOmit<
 export type AiCallRow = {
   module: number;
   feature: string;
-  model: ModelId;
+  model: ModelId | typeof EMBEDDING_MODEL;
   input_tokens: number | null;
   output_tokens: number | null;
   cost_usd: number | null;
@@ -45,15 +51,19 @@ export type AiCallRow = {
   created_at: string;
 };
 
-function languageModel(model: ModelId) {
+function google() {
   const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
   if (!googleKey) throw new AiNotConfiguredError();
+  return createGoogleGenerativeAI({ apiKey: googleKey });
+}
+
+function languageModel(model: ModelId) {
   const entry = MODELS.find((m) => m.id === model);
   const id =
     entry && "googleId" in entry
       ? entry.googleId
       : model.slice("google/".length);
-  return createGoogleGenerativeAI({ apiKey: googleKey })(id);
+  return google()(id);
 }
 
 /** Prints one line per model call, so the cost and time are visible. */
@@ -124,6 +134,85 @@ export async function callObject<Schema extends z.ZodType>(
   // Spreading `rest` loses generateText's output type; Output.object has
   // already validated it against `schema`, so restore the type here.
   return result as typeof result & { output: z.infer<Schema> };
+}
+
+/**
+ * Which job the embeddings are for. Gemini makes slightly different numbers
+ * for text being stored (a document) than for a question about it (a query).
+ */
+type EmbedKind = "document" | "query";
+
+function embedOptions(kind: EmbedKind) {
+  return {
+    google: {
+      outputDimensionality: EMBEDDING_DIMENSIONS,
+      taskType: kind === "document" ? "RETRIEVAL_DOCUMENT" : "RETRIEVAL_QUERY",
+    },
+  } as const;
+}
+
+/** Runs an embedding call and logs it to ai_calls like the text calls. */
+async function trackedEmbed<T extends { usage: { tokens: number } }>(
+  info: Omit<CallInfo, "model">,
+  run: () => Promise<T>,
+): Promise<T> {
+  const started = performance.now();
+  const row = (ok: boolean, tokens?: number): AiCallRow => ({
+    module: info.module,
+    feature: info.feature,
+    model: EMBEDDING_MODEL,
+    input_tokens: tokens ?? null,
+    output_tokens: null,
+    cost_usd:
+      tokens === undefined
+        ? null
+        : (tokens * EMBEDDING_USD_PER_MILLION_TOKENS) / 1_000_000,
+    latency_ms: Math.round(performance.now() - started),
+    ok,
+    created_at: new Date().toISOString(),
+  });
+  try {
+    const result = await run();
+    // Some providers don't report tokens for embeddings (it comes back as NaN).
+    const { tokens } = result.usage;
+    await logCall(row(true, Number.isFinite(tokens) ? tokens : undefined));
+    return result;
+  } catch (error) {
+    if (!(error instanceof AiNotConfiguredError)) await logCall(row(false));
+    throw error;
+  }
+}
+
+/**
+ * Turns many texts into embeddings, in the same order. One log line for the
+ * whole batch. Example: callEmbedMany({ module: 3, feature: "embed-docs" },
+ * { values, kind: "document" })
+ */
+export async function callEmbedMany(
+  info: Omit<CallInfo, "model">,
+  options: { values: string[]; kind: EmbedKind },
+) {
+  return trackedEmbed(info, () =>
+    embedMany({
+      model: google().embedding(EMBEDDING_MODEL),
+      values: options.values,
+      providerOptions: embedOptions(options.kind),
+    }),
+  );
+}
+
+/** Turns one text (usually a customer's question) into an embedding. */
+export async function callEmbed(
+  info: Omit<CallInfo, "model">,
+  options: { value: string; kind: EmbedKind },
+) {
+  return trackedEmbed(info, () =>
+    embed({
+      model: google().embedding(EMBEDDING_MODEL),
+      value: options.value,
+      providerOptions: embedOptions(options.kind),
+    }),
+  );
 }
 
 type StreamOptions = DistributiveOmit<
