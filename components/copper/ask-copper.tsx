@@ -637,6 +637,11 @@ function ToolOutput({ name, output }: { name: string; output: any }) {
             >
               Open page {p.page}
             </a>
+            {p.mentions?.length > 0 && (
+              <span className="bg-accent/15 ml-2 rounded-full px-2 py-0.5">
+                has {p.mentions.join(", ")}
+              </span>
+            )}
             <p className="text-muted-foreground mt-1 line-clamp-3">{p.text}</p>
           </li>
         ))}

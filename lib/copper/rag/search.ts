@@ -15,9 +15,22 @@ export type DocHit = {
   url: string;
   /** 1 means the same meaning; the closest passages usually score 0.6 to 0.8. */
   similarity: number;
+  /** Error codes from the question (like C-31) that this passage mentions. */
+  mentions: string[];
 };
 
 export const DEFAULT_RESULTS = 5;
+
+// Meaning-search is weak on short codes: "C-31" says almost nothing about what
+// a passage is about. So a passage that contains the exact code from the
+// question gets a head start.
+const CODE_BONUS = 0.25;
+
+/** Error codes like C-31 in a question, upper-cased and without repeats. */
+export function codesIn(question: string): string[] {
+  const found = question.match(/\b[A-Za-z]{1,3}-\d{1,3}\b/g) ?? [];
+  return [...new Set(found.map((code) => code.toUpperCase()))];
+}
 
 /** Scales a list of numbers to length 1, so comparing two is multiply-and-add. */
 export function normalize(vector: number[]): number[] {
@@ -47,27 +60,39 @@ function bodyOf(passage: EmbeddedPassage): string {
 
 /**
  * The `count` passages closest in meaning to the question's embedding, best
- * first. Passages are passed in so tests can use a small set.
+ * first. Passages that contain an error code from the question (`question`)
+ * get a bonus so they rank higher. Passages are passed in so tests can use a
+ * small set.
  */
 export function closestPassages(
   questionEmbedding: number[],
   count = DEFAULT_RESULTS,
   passages: EmbeddedPassage[] = PASSAGES,
+  question = "",
 ): DocHit[] {
-  const question = normalize(questionEmbedding);
+  const vector = normalize(questionEmbedding);
+  const codes = codesIn(question);
   return passages
-    .map((passage) => ({
-      passage,
-      score: similarity(question, passage.embedding),
-    }))
-    .sort((a, b) => b.score - a.score)
+    .map((passage) => {
+      const text = passage.text.toUpperCase();
+      const mentions = codes.filter((code) => text.includes(code));
+      const score = similarity(vector, passage.embedding);
+      return {
+        passage,
+        score,
+        mentions,
+        ranked: score + (mentions.length > 0 ? CODE_BONUS : 0),
+      };
+    })
+    .sort((a, b) => b.ranked - a.ranked)
     .slice(0, count)
-    .map(({ passage, score }, index) => ({
+    .map(({ passage, score, mentions }, index) => ({
       rank: index + 1,
       title: passage.title,
       page: passage.page,
       text: bodyOf(passage),
       url: pageLink(passage.documentId, passage.page),
       similarity: Math.round(score * 1000) / 1000,
+      mentions,
     }));
 }

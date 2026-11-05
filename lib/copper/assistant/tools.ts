@@ -12,7 +12,11 @@ import {
 } from "@/lib/copper/catalog";
 import { readInventory } from "@/lib/copper/inventory";
 import { callEmbed } from "@/lib/ai/call";
-import { closestPassages, type DocHit } from "@/lib/copper/rag/search";
+import {
+  closestPassages,
+  DEFAULT_RESULTS,
+  type DocHit,
+} from "@/lib/copper/rag/search";
 
 export type SearchDocsInput = { question: string };
 
@@ -207,7 +211,15 @@ export async function searchDocs(
       { module: 3, feature: "search-docs" },
       { value: input.question, kind: "query" },
     );
-    return { status: "ok", passages: closestPassages(embedding) };
+    return {
+      status: "ok",
+      passages: closestPassages(
+        embedding,
+        DEFAULT_RESULTS,
+        undefined,
+        input.question,
+      ),
+    };
   } catch {
     return {
       status: "unavailable",

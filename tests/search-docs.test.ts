@@ -81,6 +81,48 @@ describe("closestPassages", () => {
   });
 });
 
+describe("error codes in the question", () => {
+  it("finds the codes, ignoring case and repeats", async () => {
+    const { codesIn } = await import("@/lib/copper/rag/search");
+    expect(codesIn("What does c-31 mean? Is C-31 bad, or C-12?")).toEqual([
+      "C-31",
+      "C-12",
+    ]);
+    expect(codesIn("reset Wi-Fi on my 2-year plan")).toEqual([]);
+  });
+
+  it("puts passages that contain the code first, even when the meaning-match misses them", () => {
+    // A question whose meaning-match is useless (a vector pointing away from
+    // every passage) but which names C-31: the two passages that mention C-31
+    // still win.
+    const useless = passage(REFUND).embedding.map((x) => -x);
+    const hits = closestPassages(
+      useless,
+      5,
+      undefined,
+      "What does C-31 mean on Copper Notes?",
+    );
+    const withCode = hits.filter((h) => h.mentions.includes("C-31"));
+    expect(withCode.map((h) => h.page).sort()).toEqual([4, 8]);
+    expect(hits[0].mentions).toEqual(["C-31"]);
+    expect(hits[1].mentions).toEqual(["C-31"]);
+    expect(hits.slice(2).every((h) => h.mentions.length === 0)).toBe(true);
+  });
+
+  it("changes nothing for questions without a code", () => {
+    const plain = closestPassages(passage(C47).embedding);
+    const asked = closestPassages(
+      passage(C47).embedding,
+      5,
+      undefined,
+      "How do I reset it?",
+    );
+    expect(asked.map((h) => h.url + h.text)).toEqual(
+      plain.map((h) => h.url + h.text),
+    );
+  });
+});
+
 describe("the search_docs tool", () => {
   async function search(question: string, id: string) {
     embedder = embedsAs(id);
